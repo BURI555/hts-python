@@ -7,6 +7,9 @@ There is enough functionality for this to be useful, but it still needs a lot of
 
 [![Build Status](https://travis-ci.org/quinlan-lab/hts-python.svg?branch=master)](https://travis-ci.org/quinlan-lab/hts-python)
 [![codecov](https://codecov.io/gh/quinlan-lab/hts-python/branch/master/graph/badge.svg)](https://codecov.io/gh/quinlan-lab/hts-python)
+[![Docs](https://img.shields.io/badge/docs-latest-blue.svg)](http://quinlan-lab.github.io/hts-python/)
+
+
 
 A taste
 -------
