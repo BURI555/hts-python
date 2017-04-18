@@ -244,6 +244,8 @@ class Alignment(object):
         l = libhts.sam_format1(self._h, self._b, s)
         return ffi.string(s.s, l)
 
+class BamReadException(Exception): pass
+
 class Bam(object):
 
     r"""
@@ -486,8 +488,11 @@ Writing.
 
     def next(self):
         """Iterate over all alignments returning Alignment object."""
-        if libhts.sam_read1(self._htf, self.header._h, self._b) >= 0:
+        ret = libhts.sam_read1(self._htf, self.header._h, self._b)
+        if ret >= 0:
             return Alignment(self._b, self.header._h)
+        if ret < -1:
+            raise BamReadException("return: %d for bam: %s" % ret, fname)
         raise StopIteration()
 
     def __call__(self, region):
