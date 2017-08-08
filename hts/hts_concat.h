@@ -32,22 +32,56 @@ int bgzf_close(BGZF *fp);
 BGZF* bgzf_hopen(struct hFILE *fp, const char *mode);
 int bgzf_flush(BGZF *fp);
 
+enum htsFormatCategory {
+    unknown_category,
+    sequence_data,    // Sequence data -- SAM, BAM, CRAM, etc
+    variant_data,     // Variant calling data -- VCF, BCF, etc
+    index_file,       // Index file associated with some data file
+    region_list,      // Coordinate intervals or regions -- BED, etc
+    category_maximum = 32767
+};
+
+enum htsExactFormat {
+    unknown_format,
+    binary_format, text_format,
+    sam, bam, bai, cram, crai, vcf, bcf, csi, gzi, tbi, bed,
+    json,
+    format_maximum = 32767
+};
+
+enum htsCompression {
+    no_compression, gzip, bgzf, custom,
+    compression_maximum = 32767
+};
+
+typedef struct htsFormat {
+    enum htsFormatCategory category;
+    enum htsExactFormat format;
+    struct { short major, minor; } version;
+    enum htsCompression compression;
+    short compression_level;  // currently unused
+    void *specific;  // format specific options; see struct hts_opt.
+} htsFormat;
+
 
 //###########################
 //# hts
 //###########################
 struct __hts_idx_t;
 typedef struct __hts_idx_t hts_idx_t;
-
 typedef struct {
-	union {
-		BGZF *bgzf;
-		struct cram_fd *cram;
-		struct hFILE *hfile;
-		void *voidp;
-	} fp;
-	...;
+    uint32_t is_bin:1, is_write:1, is_be:1, is_cram:1, is_bgzf:1, dummy:27;
+    int64_t lineno;
+    kstring_t line;
+    char *fn, *fn_aux;
+    union {
+        BGZF *bgzf;
+        struct cram_fd *cram;
+        struct hFILE *hfile;
+    } fp;
+    htsFormat format;
 } htsFile;
+
 
 htsFile *hts_open(const char *fn, const char *mode);
 int hts_close(htsFile *fp);
@@ -151,7 +185,7 @@ typedef struct {
         bam1_core_t core;
         int l_data, m_data;
         uint8_t *data;
-		...;
+        uint64_t id;
 } bam1_t;
 
 
@@ -320,6 +354,15 @@ typedef struct {
 } variant_t;
 
 typedef struct {
+    int type;       // One of the BCF_HL_* type
+    char *key;      // The part before '=', i.e. FILTER/INFO/FORMAT/contig/fileformat etc.
+    char *value;    // Set only for generic lines, NULL for FILTER/INFO, etc.
+    int nkeys;              // Number of structured fields
+    char **keys, **vals;    // The key=value pairs
+} bcf_hrec_t;
+
+
+typedef struct {
     int id;             // id: numeric tag id, the corresponding string is bcf_hdr_t::id[BCF_DT_ID][$id].key
     int n, size, type;  // n: number of values per-sample; size: number of bytes per-sample; type: one of BCF_BT_* types
     uint8_t *p;         // same as vptr and vptr_* in bcf_info_t below
@@ -341,10 +384,31 @@ typedef struct {
                             //    data block is bigger than the original
 } bcf_info_t;
 
+typedef struct {
+    uint32_t info[3];  // stores Number:20, var:4, Type:4, ColType:4 in info[0..2]
+                       // for BCF_HL_FLT,INFO,FMT and contig length in info[0] for BCF_HL_CTG
+    bcf_hrec_t *hrec[3];
+    int id;
+} bcf_idinfo_t;
+
+typedef struct {
+    const char *key;
+    const bcf_idinfo_t *val;
+} bcf_idpair_t;
+
 
 typedef struct {
 	int32_t n[3];
-	...;
+    bcf_idpair_t *id[3];
+    void *dict[3];          // ID dictionary, contig dict and sample dict
+    char **samples;
+    bcf_hrec_t **hrec;
+    int nhrec, dirty;
+    int ntransl, *transl[2];    // for bcf_translate()
+    int nsamples_ori;           // for bcf_hdr_set_samples()
+    uint8_t *keep_samples;
+    kstring_t mem;
+    int32_t m[3];
 } bcf_hdr_t;
 
 
